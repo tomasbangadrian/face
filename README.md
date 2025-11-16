@@ -22,4 +22,4 @@ Eller koble til GitHub og deploy automatisk via Vercel dashboard.
 
 - face-api.js (via CDN)
 - Vanilla HTML/JS
-- Pre-trained ML modeller
+- ML modeller lastes fra CDN (jsdelivr)
