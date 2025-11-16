@@ -1,0 +1,17 @@
+{
+  "name": "face-comparison",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel"
+  },
+  "dependencies": {
+    "@vladmandic/face-api": "^1.7.13",
+    "canvas": "^2.11.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@vercel/node": "^3.0.11",
+    "typescript": "^5.3.3"
+  }
+}

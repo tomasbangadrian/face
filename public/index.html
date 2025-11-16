@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Face Comparison</title>
+<style>body{font-family:Arial;max-width:600px;margin:50px auto;padding:20px}.upload{margin:20px 0}img{max-width:200px;margin:10px;border:2px solid #ddd}button{padding:10px 20px;background:#0070f3;color:white;border:none;cursor:pointer}#result{font-size:24px;margin:20px 0;font-weight:bold}</style>
+</head><body>
+<h1>Face Comparison</h1>
+<div class="upload"><h3>Bilde 1:</h3><input type="file" id="file1" accept="image/*"><button onclick="useCamera(1)">Bruk Kamera</button><img id="preview1" style="display:none"></div>
+<div class="upload"><h3>Bilde 2:</h3><input type="file" id="file2" accept="image/*"><button onclick="useCamera(2)">Bruk Kamera</button><img id="preview2" style="display:none"></div>
+<button onclick="compare()">Sammenlign Ansikter</button>
+<div id="result"></div>
+<video id="camera" width="200" style="display:none"></video><canvas id="canvas" style="display:none"></canvas>
+<script>
+let images={img1:null,img2:null},currentCam=0;
+['file1','file2'].forEach((id,i)=>{document.getElementById(id).onchange=e=>{const file=e.target.files[0],reader=new FileReader();reader.onload=()=>{images['img'+(i+1)]=reader.result;const preview=document.getElementById('preview'+(i+1));preview.src=reader.result;preview.style.display='block'};reader.readAsDataURL(file)}});
+async function useCamera(num){currentCam=num;const video=document.getElementById('camera');video.style.display='block';const stream=await navigator.mediaDevices.getUserMedia({video:true});video.srcObject=stream;video.play();setTimeout(()=>{const canvas=document.getElementById('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0);const dataUrl=canvas.toDataURL('image/jpeg');images['img'+num]=dataUrl;const preview=document.getElementById('preview'+num);preview.src=dataUrl;preview.style.display='block';stream.getTracks().forEach(t=>t.stop());video.style.display='none'},3000)}
+async function compare(){if(!images.img1||!images.img2){alert('Last opp eller ta to bilder først!');return}document.getElementById('result').textContent='Prosesserer...';const res=await fetch('/api/compare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image1:images.img1,image2:images.img2})});const data=await res.json();if(data.error){document.getElementById('result').textContent='Feil: '+data.error}else{document.getElementById('result').textContent=`Likhet: ${data.similarity}/100`}}
+</script>
+</body></html>
