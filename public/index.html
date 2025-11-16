@@ -78,13 +78,21 @@ async function useCamera(num){
     video.style.display='none';
   },3000);
 }
+function loadImage(dataUrl){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=reject;
+    img.src=dataUrl;
+  });
+}
 async function compare(){
   if(!modelsLoaded){alert('Modeller lastes fortsatt...');return}
   if(!images.img1||!images.img2){alert('Last opp eller ta to bilder først!');return}
   document.getElementById('result').textContent='Prosesserer...';
   try{
-    const img1=await faceapi.bufferToImage(images.img1);
-    const img2=await faceapi.bufferToImage(images.img2);
+    const img1=await loadImage(images.img1);
+    const img2=await loadImage(images.img2);
     const detection1=await faceapi.detectSingleFace(img1).withFaceLandmarks().withFaceDescriptor();
     const detection2=await faceapi.detectSingleFace(img2).withFaceLandmarks().withFaceDescriptor();
     if(!detection1||!detection2){
