@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as faceapi from '@vladmandic/face-api';
-import { Canvas, Image } from 'canvas';
+import { Canvas, Image } from '@napi-rs/canvas';
 // @ts-ignore
 faceapi.env.monkeyPatch({ Canvas, Image });
 let modelsLoaded = false;
