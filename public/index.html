@@ -1,18 +1,102 @@
 <!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Face Comparison</title>
-<style>body{font-family:Arial;max-width:600px;margin:50px auto;padding:20px}.upload{margin:20px 0}img{max-width:200px;margin:10px;border:2px solid #ddd}button{padding:10px 20px;background:#0070f3;color:white;border:none;cursor:pointer}#result{font-size:24px;margin:20px 0;font-weight:bold}</style>
-</head><body>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Face Comparison</title>
+<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+<style>
+body{font-family:Arial;max-width:600px;margin:50px auto;padding:20px}
+.upload{margin:20px 0}
+img{max-width:200px;margin:10px;border:2px solid #ddd}
+button{padding:10px 20px;background:#0070f3;color:white;border:none;cursor:pointer;margin:5px}
+button:disabled{background:#ccc;cursor:not-allowed}
+#result{font-size:24px;margin:20px 0;font-weight:bold}
+#status{color:#666;margin:10px 0}
+</style>
+</head>
+<body>
 <h1>Face Comparison</h1>
-<div class="upload"><h3>Bilde 1:</h3><input type="file" id="file1" accept="image/*"><button onclick="useCamera(1)">Bruk Kamera</button><img id="preview1" style="display:none"></div>
-<div class="upload"><h3>Bilde 2:</h3><input type="file" id="file2" accept="image/*"><button onclick="useCamera(2)">Bruk Kamera</button><img id="preview2" style="display:none"></div>
-<button onclick="compare()">Sammenlign Ansikter</button>
+<div id="status">Laster modeller...</div>
+<div class="upload">
+<h3>Bilde 1:</h3>
+<input type="file" id="file1" accept="image/*">
+<button onclick="useCamera(1)">Bruk Kamera</button>
+<img id="preview1" style="display:none">
+</div>
+<div class="upload">
+<h3>Bilde 2:</h3>
+<input type="file" id="file2" accept="image/*">
+<button onclick="useCamera(2)">Bruk Kamera</button>
+<img id="preview2" style="display:none">
+</div>
+<button id="compareBtn" onclick="compare()" disabled>Sammenlign Ansikter</button>
 <div id="result"></div>
-<video id="camera" width="200" style="display:none"></video><canvas id="canvas" style="display:none"></canvas>
+<video id="camera" width="200" style="display:none"></video>
+<canvas id="canvas" style="display:none"></canvas>
 <script>
-let images={img1:null,img2:null},currentCam=0;
-['file1','file2'].forEach((id,i)=>{document.getElementById(id).onchange=e=>{const file=e.target.files[0],reader=new FileReader();reader.onload=()=>{images['img'+(i+1)]=reader.result;const preview=document.getElementById('preview'+(i+1));preview.src=reader.result;preview.style.display='block'};reader.readAsDataURL(file)}});
-async function useCamera(num){currentCam=num;const video=document.getElementById('camera');video.style.display='block';const stream=await navigator.mediaDevices.getUserMedia({video:true});video.srcObject=stream;video.play();setTimeout(()=>{const canvas=document.getElementById('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0);const dataUrl=canvas.toDataURL('image/jpeg');images['img'+num]=dataUrl;const preview=document.getElementById('preview'+num);preview.src=dataUrl;preview.style.display='block';stream.getTracks().forEach(t=>t.stop());video.style.display='none'},3000)}
-async function compare(){if(!images.img1||!images.img2){alert('Last opp eller ta to bilder først!');return}document.getElementById('result').textContent='Prosesserer...';const res=await fetch('/api/compare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image1:images.img1,image2:images.img2})});const data=await res.json();if(data.error){document.getElementById('result').textContent='Feil: '+data.error}else{document.getElementById('result').textContent=`Likhet: ${data.similarity}/100`}}
+let images={img1:null,img2:null},modelsLoaded=false;
+async function loadModels(){
+  try{
+    await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
+    await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+    await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+    modelsLoaded=true;
+    document.getElementById('status').textContent='Klar!';
+    document.getElementById('compareBtn').disabled=false;
+  }catch(e){
+    document.getElementById('status').textContent='Feil ved lasting av modeller: '+e.message;
+  }
+}
+window.addEventListener('load',()=>{setTimeout(loadModels,100)});
+['file1','file2'].forEach((id,i)=>{
+  document.getElementById(id).onchange=e=>{
+    const file=e.target.files[0],reader=new FileReader();
+    reader.onload=()=>{
+      images['img'+(i+1)]=reader.result;
+      const preview=document.getElementById('preview'+(i+1));
+      preview.src=reader.result;preview.style.display='block';
+    };
+    reader.readAsDataURL(file);
+  };
+});
+async function useCamera(num){
+  const video=document.getElementById('camera');
+  video.style.display='block';
+  const stream=await navigator.mediaDevices.getUserMedia({video:true});
+  video.srcObject=stream;video.play();
+  setTimeout(()=>{
+    const canvas=document.getElementById('canvas');
+    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+    canvas.getContext('2d').drawImage(video,0,0);
+    const dataUrl=canvas.toDataURL('image/jpeg');
+    images['img'+num]=dataUrl;
+    const preview=document.getElementById('preview'+num);
+    preview.src=dataUrl;preview.style.display='block';
+    stream.getTracks().forEach(t=>t.stop());
+    video.style.display='none';
+  },3000);
+}
+async function compare(){
+  if(!modelsLoaded){alert('Modeller lastes fortsatt...');return}
+  if(!images.img1||!images.img2){alert('Last opp eller ta to bilder først!');return}
+  document.getElementById('result').textContent='Prosesserer...';
+  try{
+    const img1=await faceapi.bufferToImage(images.img1);
+    const img2=await faceapi.bufferToImage(images.img2);
+    const detection1=await faceapi.detectSingleFace(img1).withFaceLandmarks().withFaceDescriptor();
+    const detection2=await faceapi.detectSingleFace(img2).withFaceLandmarks().withFaceDescriptor();
+    if(!detection1||!detection2){
+      document.getElementById('result').textContent='Fant ikke ansikt i ett eller begge bilder';
+      return;
+    }
+    const distance=faceapi.euclideanDistance(detection1.descriptor,detection2.descriptor);
+    const similarity=Math.max(0,Math.min(100,Math.round((1-distance)*100)));
+    document.getElementById('result').textContent=`Likhet: ${similarity}/100`;
+  }catch(e){
+    document.getElementById('result').textContent='Feil: '+e.message;
+  }
+}
 </script>
-</body></html>
+</body>
+</html>
